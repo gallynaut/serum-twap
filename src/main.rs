@@ -4,7 +4,9 @@ use core::f64;
 
 use chrono::prelude::*;
 use error_chain::error_chain;
+use reqwest::Client;
 use serde::Deserialize;
+use std::process;
 
 error_chain! {
     foreign_links {
@@ -30,6 +32,11 @@ struct MarketResponse {
     success: bool,
     data: Vec<MarketData>,
 }
+#[derive(Deserialize, Debug)]
+struct GetMarketsResponse {
+    success: bool,
+    data: Vec<String>,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -37,6 +44,7 @@ async fn main() -> Result<()> {
         panic!("Config Err: {:?}", err);
         // process::exit(1);
     });
+    // print_markets(&c.client).await?;
 
     let s = c.symbol.replace(&['/'][..], "");
     let q = format!("https://serum-api.bonfida.com/trades/{}", s);
@@ -45,7 +53,18 @@ async fn main() -> Result<()> {
     let res = c.client.get(q).send().await?;
 
     // Parse the response body as Json in this case
-    let res = res.json::<MarketResponse>().await?;
+    let res = match res.json::<MarketResponse>().await {
+        Ok(r) => r,
+        Err(e) => {
+            if e.to_string().contains("Market does not exist") {
+                println!("Market not found for {}", c.symbol);
+                print_markets(&c.client).await?;
+            } else {
+                println!("Decode Err: {}", e);
+            }
+            process::exit(1);
+        }
+    };
     let d = res.data;
 
     let close = d.iter().next().unwrap();
@@ -94,5 +113,23 @@ async fn main() -> Result<()> {
     println!("");
     println!("TWAP: ${:.2}", twap);
 
+    Ok(())
+}
+
+async fn print_markets(cli: &Client) -> Result<()> {
+    let q = format!("https://serum-api.bonfida.com/pairs");
+    // Perform the actual execution of the network request
+    let res = match cli.get(q).send().await {
+        Ok(i) => i,
+        Err(e) => panic!("Get Markets err: {}", e),
+    };
+
+    // Parse the response body as Json in this case
+    let res = res.json::<GetMarketsResponse>().await;
+    let d = res.unwrap().data;
+    // println!("{:?}", d);
+    for i in d.iter() {
+        println!(" >{}", i);
+    }
     Ok(())
 }
