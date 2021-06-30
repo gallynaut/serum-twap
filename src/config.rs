@@ -41,7 +41,8 @@ impl Config {
             .value_of("symbol")
             .unwrap()
             .to_string()
-            .to_ascii_uppercase();
+            .to_ascii_uppercase()
+            .replace(&['/'][..], ""); // remove backslash if provided
         println!("{:.<20} {}", "symbol", symbol);
 
         let interval = matches
