@@ -81,7 +81,6 @@ pub struct MarketData {
 pub struct MarketResponse {
     pub success: bool,
     pub data: Vec<MarketData>,
-    candles: Option<[OHLC; 24]>,
 }
 impl MarketResponse {
     fn is_valid(&self) -> bool {
@@ -112,7 +111,7 @@ impl MarketResponse {
             if x.len() == 0 {
                 continue;
             }
-            // reverse order - does Vec preserve order?
+            // reverse order
             candles[i].open = match x.iter().last() {
                 Some(i) => Some(i.price),
                 None => None,
